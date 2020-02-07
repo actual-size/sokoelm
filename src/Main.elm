@@ -1,13 +1,13 @@
 module Main exposing (..)
 
-import Array exposing (Array)
 import Browser
+import List.Extra
 import Browser.Events as Events
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
-import Json.Decode as Decode
+import Json.Decode as Json
 import Tuple exposing (first, second)
 
 
@@ -27,7 +27,6 @@ type Direction
     | Down
     | Left
     | Right
-    | Other
 
 
 type alias Coordinate =
@@ -48,7 +47,7 @@ init : () -> ( Model, Cmd msg )
 init _ =
     ( { playerPosition = ( 1, 1 )
       , boardSize = 8
-      , crates = [ ( 0, 0 ), ( 3, 2 ), ( 6, 3 ), ( 8, 5 ) ]
+      , crates = [ ( 0, 0 ), ( 3, 2 ), ( 6, 3 ) ]
       }
     , Cmd.none
     )
@@ -75,30 +74,26 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Events.onKeyDown keyDecoder
 
-
-keyDecoder : Decode.Decoder Msg
+keyDecoder : Json.Decoder Msg
 keyDecoder =
-    Decode.map toDirection (Decode.field "key" Decode.string)
+    Json.field "key" Json.string
+        |> Json.andThen
+            (\string ->
+                case string of
+                    "ArrowLeft" ->
+                        Json.succeed (Move Left)
 
+                    "ArrowRight" ->
+                        Json.succeed (Move Right)
 
-toDirection : String -> Msg
-toDirection string =
-    case string of
-        "ArrowLeft" ->
-            Move Left
+                    "ArrowUp" ->
+                        Json.succeed (Move Up)
 
-        "ArrowRight" ->
-            Move Right
-
-        "ArrowUp" ->
-            Move Up
-
-        "ArrowDown" ->
-            Move Down
-
-        _ ->
-            Move Other
-
+                    "ArrowDown" ->
+                        Json.succeed (Move Down)
+                    _ ->
+                         Json.fail "Invalid Msg"
+            )
 
 inBounds : Int -> Coordinate -> Bool
 inBounds boardSize coordinates =
@@ -112,62 +107,56 @@ inBounds boardSize coordinates =
         >= 0
 
 
-tryPushOrDefault : Direction -> Model -> Model -> Model
-tryPushOrDefault direction state default =
-    let
-        newCratePosition = case direction of
-            Up ->
-                ( first state.playerPosition + -1, second state.playerPosition )
+legal : Model -> Bool
+legal {boardSize, playerPosition, crates} =
+    Debug.log "no crates stacked" (List.Extra.allDifferent crates) && -- crates stacked
+    Debug.log "player in bounds" (inBounds boardSize playerPosition) && -- player out of bounds
+    Debug.log "player not on crate" (not (List.member playerPosition crates)) && -- player on crate
+    Debug.log "all crates in bounds" (List.all (\crate -> inBounds boardSize crate) (Debug.log "all crates" crates)) -- crate out of bounds
 
-            Down ->
-                ( first state.playerPosition + 1, second state.playerPosition )
-
-            Left ->
-                ( first state.playerPosition, second state.playerPosition + -1 )
-
-            Right ->
-                ( first state.playerPosition, second state.playerPosition + 1 )
-
-            Other ->
-                state.playerPosition
-
-    in
-        if List.any (\crate -> crate == newCratePosition) state.crates || not (inBounds state.boardSize newCratePosition) then
-            default
-        else
-            { state | crates = List.append (List.filter (\crate -> crate /= state.playerPosition) state.crates) [newCratePosition] }
 
 movePlayer : Direction -> Model -> Model
 movePlayer direction model =
     let
-        legalOrDefault =
-            \default state ->
-                if inBounds state.boardSize state.playerPosition then
-                    if List.member state.playerPosition state.crates then
-                        tryPushOrDefault direction state default
-                    else
-                        state
-                else
-                    default
-
-        newState =
+        newPlayerPosition =
             case direction of
                 Up ->
-                    { model | playerPosition = ( first model.playerPosition + -1, second model.playerPosition ) }
+                    ( first model.playerPosition + -1, second model.playerPosition )
 
                 Down ->
-                    { model | playerPosition = ( first model.playerPosition + 1, second model.playerPosition ) }
+                    ( first model.playerPosition + 1, second model.playerPosition )
 
                 Left ->
-                    { model | playerPosition = ( first model.playerPosition, second model.playerPosition + -1 ) }
+                    ( first model.playerPosition, second model.playerPosition + -1 )
 
                 Right ->
-                    { model | playerPosition = ( first model.playerPosition, second model.playerPosition + 1 ) }
+                    ( first model.playerPosition, second model.playerPosition + 1 )
 
-                Other ->
-                    model
+        newCratePosition =
+            case direction of
+                Up ->
+                    ( first newPlayerPosition + -1, second newPlayerPosition )
+
+                Down ->
+                    ( first newPlayerPosition + 1, second newPlayerPosition )
+
+                Left ->
+                    ( first newPlayerPosition, second newPlayerPosition + -1 )
+
+                Right ->
+                    ( first newPlayerPosition, second newPlayerPosition + 1 )
+
+        newState =
+            { model | playerPosition = newPlayerPosition
+            , crates = case List.member newPlayerPosition model.crates of
+                True -> List.append (List.filter (\crate -> crate /= newPlayerPosition) model.crates) [newCratePosition]
+                False -> model.crates
+            }
+
     in
-    legalOrDefault model newState
+    case legal (Debug.log "newstate" newState) of
+        True -> newState
+        False -> model
 
 
 renderTile : Model -> Int -> Int -> Html msg
