@@ -6,15 +6,95 @@ import Browser.Events as Events
 import Browser.Navigation as Nav
 import Html exposing (..)
 import Html.Attributes exposing (..)
-
-
-subscriptions : Model -> Sub msg
-subscriptions _ =
-    Sub.none
+import Html.Events exposing (onClick)
+import Json.Decode as Decode
+import Tuple exposing (first, second)
 
 
 main =
     Browser.document { init = init, update = update, view = view, subscriptions = subscriptions }
+
+
+init : () -> ( Model, Cmd msg )
+init _ =
+    ( { playerPosition = ( 1, 1 )
+      , boardSize = 5
+      }
+    , Cmd.none
+    )
+
+
+update : Msg -> Model -> ( Model, Cmd msg )
+update msg model =
+    case msg of
+        Move direction ->
+            ( movePlayer direction model, Cmd.none )
+
+
+view : Model -> Browser.Document Msg
+view model =
+    { title = "Sokoelm"
+    , body =
+        [ table []
+            [ renderBoard model.boardSize model.playerPosition ]
+        , div [] [ button [ onClick (Move Right) ] [ text "go right" ] ]
+        ]
+    }
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Events.onKeyDown keyDecoder
+
+
+keyDecoder : Decode.Decoder Msg
+keyDecoder =
+    Decode.map toDirection (Decode.field "key" Decode.string)
+
+
+toDirection : String -> Msg
+toDirection string =
+    case string of
+        "ArrowLeft" ->
+            Move Left
+
+        "ArrowRight" ->
+            Move Right
+
+        "ArrowUp" ->
+            Move Up
+
+        "ArrowDown" ->
+            Move Down
+
+        _ ->
+            Move Other
+
+
+
+-- TYPES
+
+
+type alias Model =
+    { playerPosition : Coordinate
+    , boardSize : Int
+    }
+
+
+type Msg
+    = Move Direction
+
+
+type Direction
+    = Up
+    | Down
+    | Left
+    | Right
+    | Other
+
+
+type alias Coordinate =
+    ( Int, Int )
 
 
 type Tile
@@ -22,62 +102,67 @@ type Tile
     | Player
 
 
-type alias Model =
-    { board : Array (Array Tile), playerPosition : ( Int, Int ) }
+movePlayer : Direction -> Model -> Model
+movePlayer direction model =
+    case direction of
+        Up ->
+            { model | playerPosition = ( first model.playerPosition + -1, second model.playerPosition ) }
+
+        Down ->
+            { model | playerPosition = ( first model.playerPosition + 1, second model.playerPosition ) }
+
+        Left ->
+            { model | playerPosition = ( first model.playerPosition, second model.playerPosition + -1 ) }
+
+        Right ->
+            { model | playerPosition = ( first model.playerPosition, second model.playerPosition + 1 ) }
+
+        Other ->
+            model
 
 
-startingBoard : Array (Array Tile)
-startingBoard =
-    Array.fromList
-        [ Array.fromList [ Empty, Empty, Empty, Empty, Empty, Empty ]
-        , Array.fromList [ Empty, Player, Empty, Empty, Empty, Empty ]
-        , Array.fromList [ Empty, Empty, Empty, Empty, Empty, Empty ]
-        , Array.fromList [ Empty, Empty, Empty, Empty, Empty, Empty ]
-        , Array.fromList [ Empty, Empty, Empty, Empty, Empty, Empty ]
-        ]
+
+-- create a bunch
+-- displaySquare : () -> Html Direction
+-- displaySquare arrayValue =
+--     td []
+--         [ case arrayValue of
+--             Player ->
+--                 text "+"
+--
+--             Empty ->
+--                 text "_"
+--         ]
 
 
-init : () -> ( Model, Cmd msg )
-init _ =
-    ( { board = startingBoard
-      , playerPosition = ( 1, 1 )
-      }
-    , Cmd.none
-    )
-
-
-update : msg -> Model -> ( Model, Cmd msg )
-update msg model =
-    ( model, Cmd.none )
-
-
-displaySquare : Tile -> Html msg
-displaySquare arrayValue =
+renderTile : Coordinate -> Int -> Int -> Html msg
+renderTile playerPosition col row =
+    let
+        playerIsHere =
+            playerPosition == ( row, col )
+    in
     td []
-        [ case arrayValue of
-            Player ->
+        [ case playerIsHere of
+            True ->
                 text "+"
 
-            Empty ->
+            -- text (String.concat [ String.fromInt col, String.fromInt row ])
+            False ->
                 text "_"
         ]
 
 
-displayRow : Array Tile -> Html msg
-displayRow row =
-    tr []
-        (Array.toList
-            (Array.map displaySquare row)
-        )
+renderRow : Int -> Int -> Coordinate -> Html msg
+renderRow boardSize row playerPosition =
+    tr [] (List.indexedMap (renderTile playerPosition) (List.repeat boardSize row))
 
 
-view : Model -> Browser.Document msg
-view model =
-    { title = "Sokoelm"
-    , body =
-        [ table []
-            (Array.toList
-                (Array.map displayRow model.board)
-            )
-        ]
-    }
+
+-- tr []
+--     [ td [] [ text (String.fromInt int) ]
+--     ]
+
+
+renderBoard : Int -> Coordinate -> Html msg
+renderBoard boardSize playerPosition =
+    div [] (List.map (\tile -> renderRow boardSize tile playerPosition) (List.range 0 (boardSize - 1)))
