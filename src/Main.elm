@@ -47,8 +47,8 @@ main =
 init : () -> ( Model, Cmd msg )
 init _ =
     ( { playerPosition = ( 1, 1 )
-      , boardSize = 5
-      , crates = [ ( 0, 0 ), ( 3, 2 ) ]
+      , boardSize = 8
+      , crates = [ ( 0, 0 ), ( 3, 2 ), ( 6, 3 ), ( 8, 5 ) ]
       }
     , Cmd.none
     )
@@ -100,26 +100,53 @@ toDirection string =
             Move Other
 
 
-inBounds : Model -> Bool
-inBounds { boardSize, playerPosition } =
-    first playerPosition
+inBounds : Int -> Coordinate -> Bool
+inBounds boardSize coordinates =
+    first coordinates
         < boardSize
-        && first playerPosition
+    && first coordinates
         >= 0
-        && second playerPosition
+    && second coordinates
         < boardSize
-        && second playerPosition
+    && second coordinates
         >= 0
 
+
+tryPushOrDefault : Direction -> Model -> Model -> Model
+tryPushOrDefault direction state default =
+    let
+        newCratePosition = case direction of
+            Up ->
+                ( first state.playerPosition + -1, second state.playerPosition )
+
+            Down ->
+                ( first state.playerPosition + 1, second state.playerPosition )
+
+            Left ->
+                ( first state.playerPosition, second state.playerPosition + -1 )
+
+            Right ->
+                ( first state.playerPosition, second state.playerPosition + 1 )
+
+            Other ->
+                state.playerPosition
+
+    in
+        if List.any (\crate -> crate == newCratePosition) state.crates || not (inBounds state.boardSize newCratePosition) then
+            default
+        else
+            { state | crates = List.append (List.filter (\crate -> crate /= state.playerPosition) state.crates) [newCratePosition] }
 
 movePlayer : Direction -> Model -> Model
 movePlayer direction model =
     let
         legalOrDefault =
             \default state ->
-                if inBounds state && not (List.member state.playerPosition model.crates) then
-                    state
-
+                if inBounds state.boardSize state.playerPosition then
+                    if List.member state.playerPosition state.crates then
+                        tryPushOrDefault direction state default
+                    else
+                        state
                 else
                     default
 
