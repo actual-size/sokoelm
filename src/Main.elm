@@ -121,20 +121,6 @@ movePlayer direction model =
             model
 
 
-
--- create a bunch
--- displaySquare : () -> Html Direction
--- displaySquare arrayValue =
---     td []
---         [ case arrayValue of
---             Player ->
---                 text "+"
---
---             Empty ->
---                 text "_"
---         ]
-
-
 renderTile : Coordinate -> Int -> Int -> Html msg
 renderTile playerPosition col row =
     let
@@ -146,7 +132,6 @@ renderTile playerPosition col row =
             True ->
                 text "+"
 
-            -- text (String.concat [ String.fromInt col, String.fromInt row ])
             False ->
                 text "_"
         ]
@@ -155,12 +140,6 @@ renderTile playerPosition col row =
 renderRow : Int -> Int -> Coordinate -> Html msg
 renderRow boardSize row playerPosition =
     tr [] (List.indexedMap (renderTile playerPosition) (List.repeat boardSize row))
-
-
-
--- tr []
---     [ td [] [ text (String.fromInt int) ]
---     ]
 
 
 renderBoard : Int -> Coordinate -> Html msg
