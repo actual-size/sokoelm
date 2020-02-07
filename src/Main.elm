@@ -11,6 +11,35 @@ import Json.Decode as Decode
 import Tuple exposing (first, second)
 
 
+type alias Model =
+    { playerPosition : Coordinate
+    , boardSize : Int
+    , crates : List Coordinate
+    }
+
+
+type Msg
+    = Move Direction
+
+
+type Direction
+    = Up
+    | Down
+    | Left
+    | Right
+    | Other
+
+
+type alias Coordinate =
+    ( Int, Int )
+
+
+type Tile
+    = Empty
+    | Player
+    | Crate
+
+
 main =
     Browser.document { init = init, update = update, view = view, subscriptions = subscriptions }
 
@@ -19,6 +48,7 @@ init : () -> ( Model, Cmd msg )
 init _ =
     ( { playerPosition = ( 1, 1 )
       , boardSize = 5
+      , crates = [ ( 0, 0 ), ( 3, 2 ) ]
       }
     , Cmd.none
     )
@@ -36,8 +66,7 @@ view model =
     { title = "Sokoelm"
     , body =
         [ table []
-            [ renderBoard model.boardSize model.playerPosition ]
-        , div [] [ button [ onClick (Move Right) ] [ text "go right" ] ]
+            [ renderBoard model ]
         ]
     }
 
@@ -71,77 +100,88 @@ toDirection string =
             Move Other
 
 
-
--- TYPES
-
-
-type alias Model =
-    { playerPosition : Coordinate
-    , boardSize : Int
-    }
-
-
-type Msg
-    = Move Direction
-
-
-type Direction
-    = Up
-    | Down
-    | Left
-    | Right
-    | Other
-
-
-type alias Coordinate =
-    ( Int, Int )
-
-
-type Tile
-    = Empty
-    | Player
+inBounds : Model -> Bool
+inBounds { boardSize, playerPosition } =
+    first playerPosition
+        < boardSize
+        && first playerPosition
+        >= 0
+        && second playerPosition
+        < boardSize
+        && second playerPosition
+        >= 0
 
 
 movePlayer : Direction -> Model -> Model
 movePlayer direction model =
-    case direction of
-        Up ->
-            { model | playerPosition = ( first model.playerPosition + -1, second model.playerPosition ) }
+    let
+        legalOrDefault =
+            \default state ->
+                if inBounds state && not (List.member state.playerPosition model.crates) then
+                    state
 
-        Down ->
-            { model | playerPosition = ( first model.playerPosition + 1, second model.playerPosition ) }
+                else
+                    default
 
-        Left ->
-            { model | playerPosition = ( first model.playerPosition, second model.playerPosition + -1 ) }
+        newState =
+            case direction of
+                Up ->
+                    { model | playerPosition = ( first model.playerPosition + -1, second model.playerPosition ) }
 
-        Right ->
-            { model | playerPosition = ( first model.playerPosition, second model.playerPosition + 1 ) }
+                Down ->
+                    { model | playerPosition = ( first model.playerPosition + 1, second model.playerPosition ) }
 
-        Other ->
-            model
+                Left ->
+                    { model | playerPosition = ( first model.playerPosition, second model.playerPosition + -1 ) }
+
+                Right ->
+                    { model | playerPosition = ( first model.playerPosition, second model.playerPosition + 1 ) }
+
+                Other ->
+                    model
+    in
+    legalOrDefault model newState
 
 
-renderTile : Coordinate -> Int -> Int -> Html msg
-renderTile playerPosition col row =
+renderTile : Model -> Int -> Int -> Html msg
+renderTile { playerPosition, crates } col row =
     let
         playerIsHere =
             playerPosition == ( row, col )
+
+        crateIsHere =
+            List.member ( row, col ) crates
+
+        tileState =
+            if playerIsHere then
+                Player
+
+            else if crateIsHere then
+                Crate
+
+            else
+                Empty
+
+        --
     in
     td []
-        [ case playerIsHere of
-            True ->
+        [ case tileState of
+            Player ->
                 text "+"
 
-            False ->
+            Crate ->
+                text "☐"
+
+            Empty ->
                 text "_"
         ]
 
 
-renderRow : Int -> Int -> Coordinate -> Html msg
-renderRow boardSize row playerPosition =
-    tr [] (List.indexedMap (renderTile playerPosition) (List.repeat boardSize row))
+renderRow : Int -> Model -> Html msg
+renderRow rowNumber model =
+    tr [] (List.indexedMap (renderTile model) (List.repeat model.boardSize rowNumber))
 
 
-renderBoard : Int -> Coordinate -> Html msg
-renderBoard boardSize playerPosition =
-    div [] (List.map (\tile -> renderRow boardSize tile playerPosition) (List.range 0 (boardSize - 1)))
+renderBoard : Model -> Html msg
+renderBoard model =
+    div [] (List.map (\rowNumber -> renderRow rowNumber model) (List.range 0 (model.boardSize - 1)))
