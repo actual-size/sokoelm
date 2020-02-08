@@ -1,0 +1,27 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v1
+      - uses: jorelali/setup-elm@v1
+        with:
+          elm-version: 0.19.1
+
+      - run: elm make src/Main.elm
+
+      - name: Google Cloud Platform (GCP) CLI - gcloud
+        uses: actions-hub/gcloud@278.0.0
+        env:
+          # Project id
+          PROJECT_ID: 667767806598
+          # GCP authorization credentials
+          APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          CLI: gsutil
+        with:
+          args: cp index.html gs://portfolio-267611/sokoelm
