@@ -22,5 +22,6 @@ jobs:
           PROJECT_ID: portfolio-267611
           # GCP authorization credentials
           APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          CLI: gsutil
         with:
           args: cp index.html gs://portfolio-267611/
