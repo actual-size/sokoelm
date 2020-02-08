@@ -4,7 +4,7 @@ import Browser
 import Browser.Events as Events
 import Browser.Navigation as Nav
 import Html exposing (..)
-import Html.Attributes exposing (..)
+import Html.Attributes exposing (class, style)
 import Html.Events exposing (onClick)
 import Json.Decode as Json
 import List.Extra
@@ -62,7 +62,14 @@ update msg model =
             ( movePlayer direction model, Cmd.none )
 
         Win ->
-            ( { model | crates = [ ( -1, -1 ) ], walls = [], goals = [] }, Cmd.none )
+            ( { model
+                | crates = [ ( -1, -1 ) ] -- invalid state stops player from moving after win
+                , walls = []
+                , goals = []
+              }
+            , Cmd.none
+            )
+
 
 view : Model -> Browser.Document Msg
 view model =
@@ -159,7 +166,7 @@ inBounds boardSize coordinates =
 legal : Model -> Bool
 legal { boardSize, playerPosition, crates, walls } =
     -- no collisions
-    Debug.log "all" (List.Extra.allDifferent (walls ++ crates ++ [ playerPosition ]))
+    List.Extra.allDifferent (walls ++ crates ++ [ playerPosition ])
         && -- player in bounds
            inBounds boardSize playerPosition
         && -- crate in bounds
@@ -246,34 +253,45 @@ renderTile { boardSize, playerPosition, crates, goals, walls } col row =
 
         --
     in
-    case tileState of
-        Player ->
-            text "@"
+    div
+        [ ("calc(40vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "height"
+        , ("calc(40vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "width"
+        , style "image-rendering" "pixelated"
+        , style "background"
+            (case tileState of
+                Player ->
+                    "url(player.png) 0% 0% / cover no-repeat"
 
-        Crate ->
-            text "$"
+                Crate ->
+                    "url(crate.png) 0% 0% / cover no-repeat"
 
-        Wall ->
-            text "#"
+                Wall ->
+                    "brown"
 
-        Goal ->
-            text "."
+                Goal ->
+                    "url(goal.png) 0% 0% / cover no-repeat"
 
-        Empty ->
-            text " "
+                Empty ->
+                    "none"
+            )
+        ]
+        []
 
 
 renderRow : Int -> Model -> List (Html msg)
 renderRow rowNumber model =
-    (List.repeat (second model.boardSize) rowNumber
+    List.repeat (second model.boardSize) rowNumber
         |> List.indexedMap (renderTile model)
-    )
-        ++ [ br [] [] ]
 
 
 renderBoard : Model -> Html msg
 renderBoard model =
-    pre []
+    div
+        [ style "display" "flex"
+        , style "flex-wrap" "wrap"
+        , style "width" "40vw"
+        , style "background" "#91b09a"
+        ]
         (List.range 0 (first model.boardSize - 1)
             |> List.concatMap (\rowNumber -> renderRow rowNumber model)
         )
