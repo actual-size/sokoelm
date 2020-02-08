@@ -254,8 +254,8 @@ renderTile { boardSize, playerPosition, playerFacing, crates, goals, walls } col
                 Empty
     in
     div
-        [ ("calc(40vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "height"
-        , ("calc(40vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "width"
+        [ ("calc(50vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "height"
+        , ("calc(50vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "width"
         , style "image-rendering" "pixelated"
         , style "background"
             (case tileState of
@@ -300,7 +300,7 @@ renderBoard model =
     div
         [ style "display" "flex"
         , style "flex-wrap" "wrap"
-        , style "width" "40vw"
+        , style "width" "50vw"
         , style "background" "#91b09a"
         ]
         (List.range 0 (first model.boardSize - 1)
