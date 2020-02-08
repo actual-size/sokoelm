@@ -13,6 +13,7 @@ import Tuple exposing (first, second)
 
 type alias Model =
     { playerPosition : Coordinate
+    , playerFacing : Direction
     , boardSize : Coordinate
     , crates : List Coordinate
     , goals : List Coordinate
@@ -112,6 +113,7 @@ keyDecoder =
 loadModel : Model
 loadModel =
     { playerPosition = ( 4, 2 )
+    , playerFacing = Right
     , boardSize = ( 6, 9 )
     , crates = [ ( 2, 2 ), ( 2, 6 ), ( 4, 3 ), ( 4, 5 ) ]
     , goals = [ ( 2, 1 ), ( 2, 3 ), ( 4, 4 ), ( 4, 6 ) ]
@@ -223,17 +225,17 @@ movePlayer direction model =
     in
     if newState |> legal then
         if winCondition newState then
-            first (update Win newState)
+            first (update Win { newState | playerFacing = direction })
 
         else
-            newState
+            { newState | playerFacing = direction }
 
     else
-        model
+        { model | playerFacing = direction }
 
 
 renderTile : Model -> Int -> Int -> Html msg
-renderTile { boardSize, playerPosition, crates, goals, walls } col row =
+renderTile { boardSize, playerPosition, playerFacing, crates, goals, walls } col row =
     let
         tileState =
             if playerPosition == ( row, col ) then
@@ -250,8 +252,6 @@ renderTile { boardSize, playerPosition, crates, goals, walls } col row =
 
             else
                 Empty
-
-        --
     in
     div
         [ ("calc(40vw /" ++ String.fromInt (second boardSize) ++ ")") |> style "height"
@@ -260,13 +260,24 @@ renderTile { boardSize, playerPosition, crates, goals, walls } col row =
         , style "background"
             (case tileState of
                 Player ->
-                    "url(player.png) 0% 0% / cover no-repeat"
+                    case playerFacing of
+                        Up ->
+                            "url(player-back.png) 0% 0% / cover no-repeat"
+
+                        Down ->
+                            "url(player.png) 0% 0% / cover no-repeat"
+
+                        Left ->
+                            "url(player-left.png) 0% 0% / cover no-repeat"
+
+                        Right ->
+                            "url(player-right.png) 0% 0% / cover no-repeat"
 
                 Crate ->
                     "url(crate.png) 0% 0% / cover no-repeat"
 
                 Wall ->
-                    "brown"
+                    "#2f283a"
 
                 Goal ->
                     "url(goal.png) 0% 0% / cover no-repeat"
