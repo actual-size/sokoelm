@@ -13,14 +13,16 @@ import Tuple exposing (first, second)
 
 type alias Model =
     { playerPosition : Coordinate
-    , boardSize : Int
+    , boardSize : Coordinate
     , crates : List Coordinate
+    , goals : List Coordinate
     , walls : List Coordinate
     }
 
 
 type Msg
     = Move Direction
+    | Win
 
 
 type Direction
@@ -39,6 +41,7 @@ type Tile
     | Player
     | Crate
     | Wall
+    | Goal
 
 
 main =
@@ -47,11 +50,7 @@ main =
 
 init : () -> ( Model, Cmd msg )
 init _ =
-    ( { playerPosition = ( 1, 1 )
-      , boardSize = 8
-      , crates = [ ( 3, 2 ), ( 6, 3 ), ( 3, 3 ) ]
-      , walls = [ ( 0, 0 ), ( 0, 1 ) ]
-      }
+    ( loadModel
     , Cmd.none
     )
 
@@ -62,6 +61,8 @@ update msg model =
         Move direction ->
             ( movePlayer direction model, Cmd.none )
 
+        Win ->
+            ( { model | crates = [ ( -1, -1 ) ], walls = [], goals = [] }, Cmd.none )
 
 view : Model -> Browser.Document Msg
 view model =
@@ -101,31 +102,73 @@ keyDecoder =
             )
 
 
-inBounds : Int -> Coordinate -> Bool
+loadModel : Model
+loadModel =
+    { playerPosition = ( 4, 2 )
+    , boardSize = ( 6, 9 )
+    , crates = [ ( 2, 2 ), ( 2, 6 ), ( 4, 3 ), ( 4, 5 ) ]
+    , goals = [ ( 2, 1 ), ( 2, 3 ), ( 4, 4 ), ( 4, 6 ) ]
+    , walls =
+        [ ( 0, 0 )
+        , ( 1, 0 )
+        , ( 2, 0 )
+        , ( 3, 0 )
+        , ( 4, 0 )
+        , ( 5, 0 )
+        , ( 0, 1 )
+        , ( 0, 2 )
+        , ( 0, 3 )
+        , ( 0, 4 )
+        , ( 0, 5 )
+        , ( 0, 6 )
+        , ( 0, 7 )
+        , ( 0, 8 )
+        , ( 5, 1 )
+        , ( 5, 2 )
+        , ( 5, 3 )
+        , ( 5, 4 )
+        , ( 5, 5 )
+        , ( 5, 6 )
+        , ( 5, 7 )
+        , ( 1, 8 )
+        , ( 2, 8 )
+        , ( 3, 8 )
+        , ( 4, 8 )
+        , ( 5, 8 )
+        , ( 1, 1 )
+        , ( 3, 2 )
+        , ( 1, 4 )
+        , ( 3, 5 )
+        , ( 3, 6 )
+        ]
+    }
+
+
+inBounds : Coordinate -> Coordinate -> Bool
 inBounds boardSize coordinates =
     first coordinates
-        < boardSize
+        < first boardSize
         && first coordinates
         >= 0
         && second coordinates
-        < boardSize
+        < second boardSize
         && second coordinates
         >= 0
 
 
 legal : Model -> Bool
 legal { boardSize, playerPosition, crates, walls } =
-    -- no crates stacked
-    List.Extra.allDifferent crates
+    -- no collisions
+    Debug.log "all" (List.Extra.allDifferent (walls ++ crates ++ [ playerPosition ]))
         && -- player in bounds
            inBounds boardSize playerPosition
-        && -- no player collisions
-           not
-            (List.append walls crates
-                |> List.member playerPosition
-            )
         && -- crate in bounds
            List.all (\crate -> inBounds boardSize crate) crates
+
+
+winCondition : Model -> Bool
+winCondition model =
+    List.all (\goal -> List.member goal model.crates) model.goals
 
 
 movePlayer : Direction -> Model -> Model
@@ -172,14 +215,18 @@ movePlayer direction model =
             }
     in
     if newState |> legal then
-        newState
+        if winCondition newState then
+            first (update Win newState)
+
+        else
+            newState
 
     else
         model
 
 
 renderTile : Model -> Int -> Int -> Html msg
-renderTile { playerPosition, crates, walls } col row =
+renderTile { boardSize, playerPosition, crates, goals, walls } col row =
     let
         tileState =
             if playerPosition == ( row, col ) then
@@ -187,6 +234,9 @@ renderTile { playerPosition, crates, walls } col row =
 
             else if List.member ( row, col ) crates then
                 Crate
+
+            else if List.member ( row, col ) goals then
+                Goal
 
             else if List.member ( row, col ) walls then
                 Wall
@@ -196,33 +246,34 @@ renderTile { playerPosition, crates, walls } col row =
 
         --
     in
-    td []
-        [ case tileState of
-            Player ->
-                text "+"
+    case tileState of
+        Player ->
+            text "@"
 
-            Crate ->
-                text "☐"
+        Crate ->
+            text "$"
 
-            Wall ->
-                text "#"
+        Wall ->
+            text "#"
 
-            Empty ->
-                text "_"
-        ]
+        Goal ->
+            text "."
+
+        Empty ->
+            text " "
 
 
-renderRow : Int -> Model -> Html msg
+renderRow : Int -> Model -> List (Html msg)
 renderRow rowNumber model =
-    tr []
-        (List.repeat model.boardSize rowNumber
-            |> List.indexedMap (renderTile model)
-        )
+    (List.repeat (second model.boardSize) rowNumber
+        |> List.indexedMap (renderTile model)
+    )
+        ++ [ br [] [] ]
 
 
 renderBoard : Model -> Html msg
 renderBoard model =
-    div []
-        (List.range 0 (model.boardSize - 1)
-            |> List.map (\rowNumber -> renderRow rowNumber model)
+    pre []
+        (List.range 0 (first model.boardSize - 1)
+            |> List.concatMap (\rowNumber -> renderRow rowNumber model)
         )
