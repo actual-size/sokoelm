@@ -10,4 +10,4 @@ A Sokoban-like game written in Elm, this project uses Github Actions to deploy t
 - [ ] Load level from file
 - [ ] Do something on win (instead of just deleting everything and stopping the game)
 - [ ] Host it
-- [ ] Add CD
+- [x] Add CD
