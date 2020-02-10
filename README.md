@@ -1,5 +1,5 @@
 # sokoelm
-A Sokoban-like game written in Elm
+A Sokoban-like game written in Elm, this project uses Github Actions to deploy to Google Cloud and can be found [here](https://storage.googleapis.com/portfolio-6543/index.html)
 
 ### Todo
 - [x] Player sprites
